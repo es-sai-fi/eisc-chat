@@ -3,13 +3,13 @@ import "dotenv/config";
 
 const origins = (process.env.ORIGIN ?? "")
   .split(",")
-  .map(s => s.trim())
+  .map((s) => s.trim())
   .filter(Boolean);
 
 const io = new Server({
   cors: {
-    origin: origins
-  }
+    origin: origins,
+  },
 });
 
 const port = Number(process.env.PORT);
@@ -27,6 +27,14 @@ type ChatMessagePayload = {
 let onlineUsers: OnlineUser[] = [];
 
 io.on("connection", (socket: Socket) => {
+  const totalUsers = onlineUsers.length;
+
+  if (totalUsers >= 2) {
+    socket.emit("roomFull");
+    socket.disconnect();
+    return;
+  }
+
   onlineUsers.push({ socketId: socket.id, userId: "" });
   io.emit("usersOnline", onlineUsers);
   console.log(
@@ -34,7 +42,7 @@ io.on("connection", (socket: Socket) => {
     socket.id,
     " there are now ",
     onlineUsers.length,
-    " online users"
+    " online users",
   );
 
   socket.on("newUser", (userId: string) => {
@@ -43,16 +51,16 @@ io.on("connection", (socket: Socket) => {
     }
 
     const existingUserIndex = onlineUsers.findIndex(
-      user => user.socketId === socket.id
+      (user) => user.socketId === socket.id,
     );
 
     if (existingUserIndex !== -1) {
       onlineUsers[existingUserIndex] = { socketId: socket.id, userId };
-    } else if (!onlineUsers.some(user => user.userId === userId)) {
+    } else if (!onlineUsers.some((user) => user.userId === userId)) {
       onlineUsers.push({ socketId: socket.id, userId });
     } else {
-      onlineUsers = onlineUsers.map(user =>
-        user.userId === userId ? { socketId: socket.id, userId } : user
+      onlineUsers = onlineUsers.map((user) =>
+        user.userId === userId ? { socketId: socket.id, userId } : user,
       );
     }
 
@@ -67,12 +75,12 @@ io.on("connection", (socket: Socket) => {
     }
 
     const sender =
-      onlineUsers.find(user => user.socketId === socket.id) ?? null;
+      onlineUsers.find((user) => user.socketId === socket.id) ?? null;
 
     const outgoingMessage = {
       userId: payload.userId || sender?.userId || socket.id,
       message: trimmedMessage,
-      timestamp: payload.timestamp ?? new Date().toISOString()
+      timestamp: payload.timestamp ?? new Date().toISOString(),
     };
 
     io.emit("chat:message", outgoingMessage);
@@ -80,28 +88,19 @@ io.on("connection", (socket: Socket) => {
       "Relayed chat message from: ",
       outgoingMessage.userId,
       " message: ",
-      outgoingMessage.message
+      outgoingMessage.message,
     );
   });
 
   socket.on("disconnect", () => {
-    onlineUsers = onlineUsers.filter(user => user.socketId !== socket.id);
+    onlineUsers = onlineUsers.filter((user) => user.socketId !== socket.id);
     io.emit("usersOnline", onlineUsers);
     console.log(
       "A user disconnected with id: ",
       socket.id,
       " there are now ",
       onlineUsers.length,
-      " online users"
+      " online users",
     );
   });
 });
-
-
-
-
-
-
-
-
-
